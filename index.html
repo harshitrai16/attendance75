@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            transform: translateY(0);
+            animation: slideUp 0.6s ease;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #666;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        #result {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-content {
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .highlight {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #ffe3e3;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .success {
+            background: #e3fcef;
+            border-left: 4px solid #4cd97b;
+        }
+
+        .warning {
+            background: #fff3e0;
+            border-left: 4px solid #ffb347;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 1.5rem;
+            }
+            
+            h1 {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 Attendance Calculator</h1>
+        
+        <div class="input-group">
+            <label for="attended">Days Attended</label>
+            <input type="number" id="attended" placeholder="Enter attended days">
+        </div>
+
+        <div class="input-group">
+            <label for="total">Total Days</label>
+            <input type="number" id="total" placeholder="Enter total days">
+        </div>
+
+        <div class="input-group">
+            <label for="target">Target Percentage</label>
+            <input type="number" id="target" placeholder="Enter target percentage" min="0" max="100" step="0.01">
+        </div>
+
+        <button onclick="calculate()">Calculate Attendance</button>
+
+        <div id="result">
+            <div class="result-content"></div>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            const attended = parseFloat(document.getElementById('attended').value);
+            const total = parseFloat(document.getElementById('total').value);
+            const target = parseFloat(document.getElementById('target').value);
+            const resultDiv = document.getElementById('result');
+            const resultContent = resultDiv.querySelector('.result-content');
+
+            // Reset styling
+            resultDiv.className = '';
+            resultDiv.style.display = 'none';
+
+            // Input validation
+            if (isNaN(attended) || isNaN(total) || isNaN(target)) {
+                showError('Please fill in all fields');
+                return;
+            }
+
+            if (total <= 0 || target < 0 || target > 100) {
+                showError('Invalid input values');
+                return;
+            }
+
+            if (attended > total) {
+                showError('Attended days cannot exceed total days');
+                return;
+            }
+
+            const currentPercentage = (attended / total) * 100;
+            let resultText;
+            let resultClass;
+
+            if (target > currentPercentage) {
+                const requiredDays = calculateRequiredDays(attended, total, target);
+                if (requiredDays === null) {
+                    showError('Target percentage is impossible to achieve');
+                    return;
+                }
+                resultText = `To reach <span class="highlight">${target}%</span>, you need to attend <span class="highlight">${requiredDays}</span> more consecutive days.`;
+                resultClass = 'success';
+            } else if (target < currentPercentage) {
+                const allowedMissedDays = calculateAllowedMissedDays(attended, total, target);
+                if (allowedMissedDays === null) {
+                    showError('Cannot calculate with target 0%');
+                    return;
+                }
+                if (allowedMissedDays <= 0) {
+                    resultText = 'You cannot miss any more days without dropping below your target';
+                    resultClass = 'warning';
+                } else {
+                    resultText = `You can take off up to <span class="highlight">${allowedMissedDays}</span> days while maintaining <span class="highlight">${target}%</span>.`;
+                    resultClass = 'success';
+                }
+            } else {
+                resultText = '🎉 You\'re already meeting your target attendance!';
+                resultClass = 'success';
+            }
+
+            resultContent.innerHTML = `
+                <p>Current Attendance: <span class="highlight">${currentPercentage.toFixed(2)}%</span></p>
+                <p>${resultText}</p>
+            `;
+            resultDiv.className = resultClass;
+            resultDiv.style.display = 'block';
+        }
+
+        function calculateRequiredDays(attended, total, target) {
+            const numerator = (target * total / 100) - attended;
+            const denominator = 1 - (target / 100);
+            
+            if (denominator <= 0 || numerator < 0) return null;
+            return Math.ceil(numerator / denominator);
+        }
+
+        function calculateAllowedMissedDays(attended, total, target) {
+            const numerator = attended - (target * total / 100);
+            const denominator = target / 100;
+            
+
+            return Math.floor(numerator / denominator);
+        }
+
+        function showError(message) {
+            const resultDiv = document.getElementById('result');
+            const resultContent = resultDiv.querySelector('.result-content');
+            
+            resultContent.innerHTML = `<p>⚠️ ${message}</p>`;
+            resultDiv.className = 'error';
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
